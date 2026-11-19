@@ -13,7 +13,7 @@ def test_endpoints_return_200(client, url):
 
 def test_health_status_ok(client):
     data = client.get("/health").get_json()
-    assert data["status"] == "ok"
+    assert data["status"] == "OK"  # ЕКСПЕРИМЕНТ 1: навмисно зламаний тест
     assert data["uptime_sec"] >= 0
 
 
