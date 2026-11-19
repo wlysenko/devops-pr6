@@ -21,4 +21,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:' + __import__('os').getenv('PORT','8000') + '/health', timeout=2)" || exit 1
 
-CMD exec gunicorn -b 0.0.0.0:8001 -w 2 --timeout 30 "app.main:create_app()"
+CMD exec gunicorn -b 0.0.0.0:${PORT:-8000} -w 2 --timeout 30 "app.main:create_app()"
