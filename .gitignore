@@ -5,3 +5,6 @@ __pycache__/
 .current_version
 .previous_version
 .DS_Store
+.env
+junit*.xml
+reports/

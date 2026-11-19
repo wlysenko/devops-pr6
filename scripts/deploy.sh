@@ -6,17 +6,14 @@ cd "$(dirname "$0")/.."
 
 if [ -f .current_version ]; then cp .current_version .previous_version; fi
 
-export APP_VERSION="$VER"
+export APP_VERSION="$VER" IMAGE="pr6-service:$VER"
 docker compose build
 docker compose up -d
 
 # чекаємо, поки сервіс відповість
-for i in $(seq 1 15); do
-  if curl -fs http://localhost:8000/health >/dev/null; then break; fi
-  sleep 1
-done
+./scripts/wait_health.sh 30 >/dev/null || true
 
-if curl -fs http://localhost:8000/version | grep -q "\"$VER\""; then
+if curl -fs --max-time 3 http://localhost:8000/version | grep -q "\"$VER\""; then
   echo "$VER" > .current_version
   echo "OK: працює версія $VER"
 else

@@ -2,15 +2,17 @@ services:
   service:
     build:
       context: .
-      args:
-        APP_VERSION: ${APP_VERSION:-1.0.0}
-    image: pr6-service:${APP_VERSION:-1.0.0}
+    image: ${IMAGE:-pr6-service:local}
     container_name: pr6-service
+    env_file:
+      - path: .env
+        required: false
     environment:
       APP_VERSION: ${APP_VERSION:-1.0.0}
       APP_ENV: ${APP_ENV:-dev}
+      PORT: ${PORT:-8000}
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
     read_only: true
     tmpfs:
       - /tmp

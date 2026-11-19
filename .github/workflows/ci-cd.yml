@@ -1,0 +1,93 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_REPO: ghcr.io/${{ github.repository }}
+  APP_VERSION: "1.1.0"
+  APP_ENV: test
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: pytest
+        run: mkdir -p reports && pytest tests/test_app.py --junitxml=reports/junit-unit.xml
+      - name: Save test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: reports/
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image (tag = commit hash)
+        run: docker build -t $IMAGE_REPO:${{ github.sha }} .
+      - name: Push image
+        if: github.event_name == 'push'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker push $IMAGE_REPO:${{ github.sha }}
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: training
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Pull checked image
+        run: docker pull $IMAGE_REPO:${{ github.sha }}
+      - name: Deploy and check /health
+        id: deploy
+        run: ./scripts/ci_deploy.sh $IMAGE_REPO:${{ github.sha }}
+      - name: Testinfra
+        id: infra
+        run: mkdir -p reports && pytest tests/test_infra.py --hosts=docker://pr6-service --junitxml=reports/junit-infra.xml
+      - name: Mark image as stable
+        run: |
+          docker tag $IMAGE_REPO:${{ github.sha }} $IMAGE_REPO:stable
+          docker push $IMAGE_REPO:stable
+      - name: Container logs (before rollback)
+        if: always()
+        run: mkdir -p reports && docker logs pr6-service > reports/container.log 2>&1 || true
+      - name: Automatic rollback
+        if: failure()
+        run: |
+          ./scripts/ci_rollback.sh $IMAGE_REPO
+          echo "Відкат виконано, але розгортання ${{ github.sha }} лишається невдалим"
+          exit 1
+      - name: Save reports and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-reports
+          path: reports/
+      - name: Stop
+        if: always()
+        run: docker compose down || true

@@ -1,17 +1,12 @@
-import os
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify
 
-DEFAULT_VERSION = "1.0.0"
-
-
-def get_version():
-    # версію беремо з оточення, щоб її можна було змінити без перезбірки коду
-    return os.getenv("APP_VERSION", DEFAULT_VERSION)
+from app.config import load_config
 
 
 def create_app():
+    cfg = load_config()  # з неправильними змінними застосунок не створиться
     app = Flask(__name__)
     started = datetime.now(timezone.utc)
 
@@ -22,15 +17,11 @@ def create_app():
 
     @app.get("/version")
     def version():
-        return jsonify(
-            version=get_version(),
-            env=os.getenv("APP_ENV", "dev"),
-        )
+        return jsonify(version=cfg["version"], env=cfg["env"])
 
     return app
 
 
-app = create_app()
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8000")))
+    application = create_app()
+    application.run(host="0.0.0.0", port=load_config()["port"])

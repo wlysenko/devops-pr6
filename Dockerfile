@@ -1,8 +1,6 @@
 FROM python:3.12-slim
 
-ARG APP_VERSION=1.0.0
-ENV APP_VERSION=${APP_VERSION} \
-    PYTHONDONTWRITEBYTECODE=1 \
+ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 # procps та iproute2 потрібні для перевірок Testinfra (ps, ss)
@@ -21,6 +19,6 @@ USER app
 EXPOSE 8000
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')" || exit 1
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:' + __import__('os').getenv('PORT','8000') + '/health', timeout=2)" || exit 1
 
-CMD ["gunicorn", "-b", "0.0.0.0:8000", "-w", "2", "app.main:app"]
+CMD exec gunicorn -b 0.0.0.0:${PORT:-8000} -w 2 --timeout 30 "app.main:create_app()"
