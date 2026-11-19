@@ -41,7 +41,7 @@ def test_root_fs_read_only(host):
 
 def test_health_inside_container(host):
     cmd = host.run(
-        "python -c \"import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/health').read().decode())\""
+        "python -c \"import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read().decode())\""
     )
     assert cmd.rc == 0
     assert '"status":"ok"' in cmd.stdout.replace(" ", "")
